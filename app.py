@@ -104,6 +104,27 @@ def try_run(coro, failure="Athena hit a snag reaching its memory."):
         return False, None
 
 
+def ingest(paths, label):
+    """Ingest a batch of file paths in one cognify, guarded, and surface what OCR did.
+    Returns True on success. `paths` is a list of local file paths."""
+    with st.spinner(f"Ingesting {label}…"):
+        ok, res = try_run(memory.remember(paths), "Couldn't ingest the file(s).")
+    if ok:
+        st.success(f"Ingested {len(paths)} file(s). Ask a question →")
+        if isinstance(res, dict):
+            if res.get("ocr"):
+                st.info(
+                    "🔎 Read scanned PDF(s) with OCR: **" + ", ".join(res["ocr"])
+                    + "** — no text layer, so Athena recognised the pages. Now searchable."
+                )
+            if res.get("unreadable"):
+                st.warning(
+                    "⚠️ Couldn't extract text even with OCR: **" + ", ".join(res["unreadable"])
+                    + "**. Try a clearer scan or a text-based PDF."
+                )
+    return ok
+
+
 # --- session identity: this is what gives cross-session memory --------------
 if "session_id" not in st.session_state:
     st.session_state.session_id = f"athena_{uuid.uuid4().hex[:8]}"
@@ -137,27 +158,44 @@ with st.sidebar:
     st.header("🧠 Memory")
     st.caption(f"Session `{st.session_state.session_id}` · cross-session memory on")
 
-    default_folder = str(Path(__file__).parent / "demo_data")
-    folder = st.text_input("Source folder", value=default_folder)
+    # Uploaded files land here; Refresh watches this folder. Runtime-only (gitignored).
+    upload_dir = Path(__file__).parent / "uploaded_data"
+    upload_dir.mkdir(exist_ok=True)
 
     st.markdown("**① Build memory**")
-    if st.button("📥 Remember (ingest folder)", use_container_width=True):
-        with st.spinner("Building the knowledge graph…"):
-            ok, res = try_run(memory.remember(folder), "Couldn't build memory from that folder.")
-        if ok:
-            st.success("Ingested. Ask a question →")
-            ocr = res.get("ocr") if isinstance(res, dict) else None
-            bad = res.get("unreadable") if isinstance(res, dict) else None
-            if ocr:
-                st.info(
-                    "🔎 Read scanned PDF(s) with OCR: **" + ", ".join(ocr)
-                    + "** — no text layer, so Athena recognised the pages. Now searchable."
-                )
-            if bad:
-                st.warning(
-                    "⚠️ Couldn't extract text even with OCR: **" + ", ".join(bad)
-                    + "**. Try a clearer scan or a text-based PDF."
-                )
+    uploaded_files = st.file_uploader(
+        "Upload documents to remember",
+        accept_multiple_files=True,
+        type=["txt", "md", "pdf", "docx", "csv", "json"],
+    )
+    if uploaded_files:
+        new_paths = []
+        for uf in uploaded_files:
+            file_key = f"ingested_{uf.name}_{uf.size}"
+            if file_key not in st.session_state:
+                dest = upload_dir / uf.name
+                dest.write_bytes(uf.getvalue())
+                new_paths.append(str(dest))
+                st.session_state[file_key] = True
+        if new_paths and ingest(new_paths, "uploaded file(s)"):
+            st.rerun()
+
+    if st.button("📥 Load demo data", use_container_width=True):
+        demo_dir = Path(__file__).parent / "demo_data"
+        new_paths = []
+        for df in sorted(demo_dir.glob("*")):
+            if df.is_file() and not df.name.startswith("."):
+                file_key = f"ingested_{df.name}_{df.stat().st_size}"
+                if file_key not in st.session_state:
+                    dest = upload_dir / df.name
+                    dest.write_bytes(df.read_bytes())
+                    new_paths.append(str(dest))
+                    st.session_state[file_key] = True
+        if new_paths:
+            if ingest(new_paths, "demo file(s)"):
+                st.rerun()
+        else:
+            st.info("Demo files already loaded.")
 
     st.markdown("**② Explore**")
     if st.button("🕸️ View knowledge graph", use_container_width=True):
@@ -168,7 +206,7 @@ with st.sidebar:
             try:
                 st.session_state.graph_html = Path(out).read_text(encoding="utf-8")
             except Exception:
-                st.error("⚠️ The graph wasn't produced yet — click **Remember** first.")
+                st.error("⚠️ The graph wasn't produced yet — build memory first.")
 
     st.caption("Try asking 👇")
     for j, ex in enumerate(
@@ -184,7 +222,7 @@ with st.sidebar:
     st.markdown("**③ Keep it current**")
     if st.button("🔄 Refresh (only changed files)", use_container_width=True):
         with st.spinner("Syncing changed/removed sources…"):
-            ok, res = try_run(memory.refresh(folder), "Refresh couldn't reach the sources.")
+            ok, res = try_run(memory.refresh(str(upload_dir)), "Refresh couldn't reach the sources.")
         if ok:
             st.session_state.last_refresh = res
             # The "living memory" beat: re-ask the last question so the answer visibly
@@ -212,6 +250,13 @@ with st.sidebar:
         st.session_state.pop("graph_html", None)
         st.session_state.pop("last_refresh", None)
         st.session_state.pop("correcting", None)
+        # Reset upload tracking and clear the uploaded files from disk.
+        for key in [k for k in st.session_state.keys() if k.startswith("ingested_")]:
+            st.session_state.pop(key, None)
+        if upload_dir.exists():
+            for f in upload_dir.glob("*"):
+                if f.is_file():
+                    f.unlink()
         st.warning("Memory cleared for this dataset.")
 
 # --------------------------------------------------------------------------- #
@@ -223,12 +268,12 @@ if st.session_state.get("graph_html"):
 
 if not st.session_state.chat and not st.session_state.get("graph_html"):
     st.info(
-        "👋 **Start here** — click **📥 Remember** in the sidebar to turn the "
-        "`demo_data/` folder into a knowledge graph, then ask a question below. "
+        "👋 **Start here** — upload your documents or click **📥 Load demo data** in the "
+        "sidebar to build a knowledge graph, then ask a question below. "
         "Athena answers **with citations**; correct it with 👎 and it **learns**; "
         "change a source and hit **🔄 Refresh** and its answers **stay current**."
     )
-    st.caption("New here? Click a **Try asking** example in the sidebar to jump right in.")
+    st.caption("New here? Load the demo data, then click a **Try asking** example.")
 
 for i, turn in enumerate(st.session_state.chat):
     with st.chat_message("user", avatar="🧑"):

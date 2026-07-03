@@ -56,17 +56,19 @@ def _pdf_text_len(path: str) -> int:
 
 
 def _scanned_pdf_paths(paths) -> list:
-    """Full paths of PDFs in `paths` (folder or single file:// URL) whose text layer is
-    ~empty — i.e. scanned/image PDFs that need OCR to be readable."""
-    local = _local_path(paths)
-    if not local:
-        return []
-    if os.path.isdir(local):
-        pdfs = glob.glob(os.path.join(local, "**", "*.pdf"), recursive=True)
-    elif local.lower().endswith(".pdf") and os.path.isfile(local):
-        pdfs = [local]
-    else:
-        return []
+    """Full paths of PDFs in `paths` whose text layer is ~empty — i.e. scanned/image
+    PDFs that need OCR. `paths` may be a folder, a single file:// URL or path, or a
+    list of any of those."""
+    items = paths if isinstance(paths, (list, tuple)) else [paths]
+    pdfs = []
+    for item in items:
+        local = _local_path(item)
+        if not local:
+            continue
+        if os.path.isdir(local):
+            pdfs += glob.glob(os.path.join(local, "**", "*.pdf"), recursive=True)
+        elif local.lower().endswith(".pdf") and os.path.isfile(local):
+            pdfs.append(local)
     return [f for f in pdfs if 0 <= _pdf_text_len(f) < 20]
 
 
@@ -217,7 +219,9 @@ async def remember(paths) -> dict:
             ocr_ok.append(name)
         else:
             ocr_fail.append(name)
-    await cognee.add(paths, dataset_name=DATASET)
+    # Add each source (folder, file, or list of files), then cognify once for the batch.
+    for item in (paths if isinstance(paths, (list, tuple)) else [paths]):
+        await cognee.add(item, dataset_name=DATASET)
     await cognee.cognify(datasets=[DATASET])
     return {"ok": True, "dataset": DATASET, "ocr": ocr_ok, "unreadable": ocr_fail}
 

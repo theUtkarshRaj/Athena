@@ -11,6 +11,9 @@ __pycache__/
 *.pyc
 .venv/
 
+# user-uploaded files (created at runtime by the app) — never commit
+uploaded_data/
+
 # logs & generated graph HTML
 *.log
 *.html
