@@ -2,6 +2,7 @@
 # cognee provides the memory layer; [gemini] pulls the Gemini LLM/embedding deps.
 cognee[gemini]
 streamlit>=1.36
+python-dotenv>=1.0
 
 # OCR for scanned / image-only PDFs (pip-only, no system binaries — deploys anywhere).
 # PyMuPDF renders pages, rapidocr-onnxruntime recognises text (bundles its own models).

@@ -17,7 +17,28 @@ from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 
-import memory
+# --- configuration: .env locally, st.secrets on Streamlit Cloud ---------------
+# cognee reads its LLM/DB settings from environment variables. Locally those come
+# from .env; on Streamlit Cloud there is no .env, so bridge st.secrets -> os.environ.
+# Must run BEFORE `import memory` (which imports and configures cognee).
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).parent / ".env")
+except Exception:
+    pass
+try:
+    for _k, _v in dict(st.secrets).items():
+        os.environ.setdefault(_k, str(_v))
+except Exception:
+    pass
+# Ensure cognee's file DBs land somewhere writable when roots aren't provided
+# (e.g. Streamlit Cloud). Local runs set these via .env, so setdefault is a no-op.
+_here = Path(__file__).parent
+os.environ.setdefault("DATA_ROOT_DIRECTORY", str(_here / ".cognee" / "data"))
+os.environ.setdefault("SYSTEM_ROOT_DIRECTORY", str(_here / ".cognee" / "system"))
+
+import memory  # noqa: E402  (imported after the env is configured, on purpose)
 
 st.set_page_config(page_title="Athena — living AI memory", page_icon="🧠", layout="wide")
 
