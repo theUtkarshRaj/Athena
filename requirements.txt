@@ -1,0 +1,4 @@
+# Athena dependencies.
+# cognee provides the memory layer; [gemini] pulls the Gemini LLM/embedding deps.
+cognee[gemini]
+streamlit>=1.36

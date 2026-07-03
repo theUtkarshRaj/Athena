@@ -1,0 +1,19 @@
+# secrets — never commit
+.env
+
+# cognee data stores — never commit (rebuilt from demo_data/ on first run)
+.cognee/
+.cognee_system/
+.data_storage/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# logs & generated graph HTML
+*.log
+*.html
+
+# dev scratch: probes, smoke tests, session notes (anything prefixed with _)
+_*
