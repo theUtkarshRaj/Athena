@@ -4,8 +4,8 @@ cognee[gemini]
 streamlit>=1.36
 python-dotenv>=1.0
 
-# OCR for scanned / image-only PDFs (pip-only, no system binaries — deploys anywhere).
-# PyMuPDF renders pages, rapidocr-onnxruntime recognises text (bundles its own models).
-pymupdf>=1.24
-pillow>=10
-rapidocr-onnxruntime>=1.2
+# Optional: OCR for scanned / image-only PDFs. Kept OUT of the default install so the
+# hosted (Streamlit Cloud) build stays light and reliable. The app's OCR code degrades
+# gracefully when these are absent. To enable OCR locally, install:
+#   pip install pymupdf>=1.24 pillow>=10 rapidocr-onnxruntime>=1.2
+# (on Linux, rapidocr's opencv also needs apt packages: libgl1 libglib2.0-0)
