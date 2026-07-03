@@ -93,12 +93,12 @@ cp .env.example .env                      # paste your Gemini API key into .env
 streamlit run app.py                      # → http://localhost:8501
 ```
 
-Then, in the sidebar: **Remember** the bundled `demo_data/` folder and start asking. No
-infrastructure to stand up — every database is a local file.
+Then, in the sidebar, click **📥 Load demo data** (or drag in your own files) and start
+asking. No infrastructure to stand up — every database is a local file.
 
 ## Three-minute demo
 
-1. **Remember** `demo_data/` → open **View knowledge graph** and watch the entities connect.
+1. **Load demo data** (or upload your own) → open **View knowledge graph** and watch the entities connect.
 2. **Ask** *"How is Alice connected to the Apollo export timeout?"* → a cited answer that spans
    multiple files.
 3. **Ask** *"Who won the 2022 World Cup?"* → an honest refusal, with **no** citations.
@@ -127,15 +127,11 @@ That's the difference between *using* open-source cognee and *building* it.
 
 ## Screenshots
 
-<!-- Capture into docs/ and uncomment. Order tells the story:
-     graph → cited answer → honest refusal → teach → refresh → OCR. -->
-<!--
-| Knowledge graph | Cited answer | Honest refusal |
+| Knowledge graph | Cited answer | Honest refusal (no sources) |
 |---|---|---|
-| ![graph](docs/01-graph.png) | ![cited](docs/02-cited.png) | ![refusal](docs/03-refusal.png) |
-| Learns from 👎 | Refresh changes the answer | Reads a scanned PDF (OCR) |
-| ![teach](docs/04-teach.png) | ![refresh](docs/05-refresh.png) | ![ocr](docs/06-ocr.png) |
--->
+| ![Knowledge graph of the demo corpus](docs/01-graph.png) | ![A cited answer spanning three files](docs/02-cited.png) | ![An out-of-scope question refused with no citations](docs/03-refusal.png) |
+| **Learns from 👎 feedback** | **Refresh — the answer updates** | **Reads a scanned PDF (OCR)** |
+| ![Correcting an answer, and it improves](docs/04-teach.png) | ![Memory refreshed and the answer re-cited](docs/05-refresh.png) | ![Answering from an OCR'd scanned transcript](docs/06-ocr.png) |
 
 ## Tech stack
 
