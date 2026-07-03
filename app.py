@@ -66,14 +66,60 @@ with st.sidebar:
     st.header("🧠 Memory")
     st.caption(f"Session `{st.session_state.session_id}` · cross-session memory on")
 
-    default_folder = str(Path(__file__).parent / "demo_data")
-    folder = st.text_input("Source folder", value=default_folder)
+    # Ensure upload directory exists
+    upload_dir = Path(__file__).parent / "uploaded_data"
+    upload_dir.mkdir(exist_ok=True)
 
     st.markdown("**① Build memory**")
-    if st.button("📥 Remember (ingest folder)", use_container_width=True):
-        with st.spinner("Building the knowledge graph…"):
-            run(memory.remember(folder))
-        st.success("Ingested. Ask a question →")
+    uploaded_files = st.file_uploader(
+        "Upload files to ingest",
+        accept_multiple_files=True,
+        type=["txt", "pdf", "md", "json", "docx"]
+    )
+
+    if uploaded_files:
+        new_files_to_remember = []
+        for uploaded_file in uploaded_files:
+            file_key = f"ingested_{uploaded_file.name}_{uploaded_file.size}"
+            if file_key not in st.session_state:
+                # Save to uploaded_data directory
+                dest_path = upload_dir / uploaded_file.name
+                with open(dest_path, "wb") as f:
+                    f.write(uploaded_file.getvalue())
+                new_files_to_remember.append(str(dest_path))
+                st.session_state[file_key] = True
+
+        if new_files_to_remember:
+            with st.spinner("Ingesting uploaded file(s) into memory…"):
+                for path in new_files_to_remember:
+                    run(memory.remember(path))
+            st.success(f"Ingested {len(new_files_to_remember)} new file(s)!")
+            st.rerun()
+
+    # Load Demo Data option
+    if st.button("📥 Load Demo Data Files", use_container_width=True):
+        demo_dir = Path(__file__).parent / "demo_data"
+        if demo_dir.exists():
+            demo_files = list(demo_dir.glob("*"))
+            if demo_files:
+                new_files_to_remember = []
+                for df in demo_files:
+                    if df.is_file() and not df.name.startswith("."):
+                        file_key = f"ingested_{df.name}_{df.stat().st_size}"
+                        if file_key not in st.session_state:
+                            dest_path = upload_dir / df.name
+                            dest_path.write_bytes(df.read_bytes())
+                            new_files_to_remember.append(str(dest_path))
+                            st.session_state[file_key] = True
+                
+                if new_files_to_remember:
+                    with st.spinner("Ingesting demo files…"):
+                        for path in new_files_to_remember:
+                            run(memory.remember(path))
+                    st.success(f"Ingested {len(new_files_to_remember)} demo file(s)!")
+                    st.rerun()
+                else:
+                    st.info("Demo files already loaded.")
 
     st.markdown("**② Explore**")
     if st.button("🕸️ View knowledge graph", use_container_width=True):
@@ -96,7 +142,7 @@ with st.sidebar:
     st.markdown("**③ Keep it current**")
     if st.button("🔄 Refresh (only changed files)", use_container_width=True):
         with st.spinner("Syncing changed/removed sources…"):
-            res = run(memory.refresh(folder))
+            res = run(memory.refresh(str(upload_dir)))
         st.session_state.last_refresh = res
         # The "living memory" beat: re-ask the last question so the answer visibly
         # updates to reflect the changed sources — memory that never goes stale.
@@ -121,6 +167,15 @@ with st.sidebar:
         st.session_state.chat = []
         st.session_state.pop("graph_html", None)
         st.session_state.pop("last_refresh", None)
+        # Clear the ingested tracking keys from session state
+        for key in list(st.session_state.keys()):
+            if key.startswith("ingested_"):
+                st.session_state.pop(key)
+        # Delete files from uploaded_data directory
+        if upload_dir.exists():
+            for f in upload_dir.glob("*"):
+                if f.is_file():
+                    f.unlink()
         st.warning("Memory cleared for this dataset.")
 
 # --------------------------------------------------------------------------- #
@@ -132,8 +187,8 @@ if st.session_state.get("graph_html"):
 
 if not st.session_state.chat and not st.session_state.get("graph_html"):
     st.info(
-        "👋 **Start here** — click **📥 Remember** in the sidebar to turn the "
-        "`demo_data/` folder into a knowledge graph, then ask a question below. "
+        "👋 **Start here** — upload files or click **Load Demo Data Files** in the "
+        "sidebar to build your knowledge graph, then ask a question below. "
         "Athena answers **with citations**; correct it with 👎 and it **learns**; "
         "change a source and hit **🔄 Refresh** and its answers **stay current**."
     )
