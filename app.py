@@ -30,11 +30,18 @@ try:
     load_dotenv(Path(__file__).parent / ".env")
 except Exception:
     pass
-try:
-    for _k, _v in dict(st.secrets).items():
-        os.environ.setdefault(_k, str(_v))
-except Exception:
-    pass
+# Only touch st.secrets when a secrets file exists — otherwise Streamlit renders a
+# "No secrets found" banner. Local runs use .env; Streamlit Cloud writes a secrets.toml.
+_secret_files = [
+    Path.home() / ".streamlit" / "secrets.toml",
+    Path(__file__).parent / ".streamlit" / "secrets.toml",
+]
+if any(_p.exists() for _p in _secret_files):
+    try:
+        for _k, _v in dict(st.secrets).items():
+            os.environ.setdefault(_k, str(_v))
+    except Exception:
+        pass
 # Ensure cognee's file DBs land somewhere writable when roots aren't provided
 # (e.g. Streamlit Cloud). Local runs set these via .env, so setdefault is a no-op.
 _here = Path(__file__).parent
