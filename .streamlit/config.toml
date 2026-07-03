@@ -1,0 +1,15 @@
+# Athena UI theme. Official Streamlit theming — recolors the whole app in one place.
+[theme]
+base = "dark"
+primaryColor = "#8b7cf6"            # violet accent (buttons, focus, expander, avatars)
+backgroundColor = "#0d0e14"         # deep blue-black canvas
+secondaryBackgroundColor = "#171922" # sidebar + cards
+textColor = "#e6e7ee"
+font = "sans serif"
+
+[server]
+headless = true
+
+[client]
+# Hide the developer toolbar / "Deploy" button so it reads as a product, not a dev tool.
+toolbarMode = "minimal"

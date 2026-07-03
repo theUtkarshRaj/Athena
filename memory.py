@@ -13,14 +13,115 @@ Every function here maps 1:1 to a cognee memory verb, so the agent's behaviour
 Kept deliberately small; the Streamlit app calls these.
 """
 
+import glob
 import os
 import re
 from typing import Any, Optional
+from urllib.parse import unquote, urlparse
 
 import cognee
 from cognee.api.v1.search import SearchType
 
 DATASET = os.getenv("ATHENA_DATASET", "athena")
+
+
+# --------------------------------------------------------------------------- #
+# pre-flight: catch scanned / image-only PDFs (no text layer) before ingest so
+# we can tell the user, instead of silently refusing every question later.
+# --------------------------------------------------------------------------- #
+def _local_path(paths) -> Optional[str]:
+    """Turn a folder path or a file:// URL into a local filesystem path (best effort)."""
+    if not isinstance(paths, str):
+        return None
+    p = paths.strip()
+    if p.startswith("file://"):
+        p = unquote(urlparse(p).path)
+        # 'file:///C:/x' -> urlparse gives '/C:/x'; drop the leading slash on Windows
+        if os.name == "nt" and len(p) > 2 and p[0] == "/" and p[2] == ":":
+            p = p[1:]
+    return p
+
+
+def _pdf_text_len(path: str) -> int:
+    """Chars pypdf (cognee's extractor) can pull from a PDF. -1 if it can't be read."""
+    try:
+        from pypdf import PdfReader
+    except Exception:
+        return -1
+    try:
+        reader = PdfReader(path)
+        return sum(len(pg.extract_text() or "") for pg in reader.pages)
+    except Exception:
+        return -1
+
+
+def _scanned_pdf_paths(paths) -> list:
+    """Full paths of PDFs in `paths` (folder or single file:// URL) whose text layer is
+    ~empty — i.e. scanned/image PDFs that need OCR to be readable."""
+    local = _local_path(paths)
+    if not local:
+        return []
+    if os.path.isdir(local):
+        pdfs = glob.glob(os.path.join(local, "**", "*.pdf"), recursive=True)
+    elif local.lower().endswith(".pdf") and os.path.isfile(local):
+        pdfs = [local]
+    else:
+        return []
+    return [f for f in pdfs if 0 <= _pdf_text_len(f) < 20]
+
+
+def unreadable_pdfs(paths) -> list:
+    """Basenames of scanned/image PDFs found under `paths` (for UI messages)."""
+    return [os.path.basename(f) for f in _scanned_pdf_paths(paths)]
+
+
+# --------------------------------------------------------------------------- #
+# OCR — read scanned/image PDFs that have no text layer. Pip-only stack
+# (PyMuPDF renders pages, rapidocr-onnxruntime does OCR) so it deploys anywhere
+# with no system binaries. Lazily initialised so startup stays instant.
+# --------------------------------------------------------------------------- #
+_OCR_DPI = 300
+_OCR_THRESHOLD = 165  # grayscale cutoff: lighter pixels (watermarks/background) -> white
+_ocr_engine = None
+
+
+def _get_ocr():
+    global _ocr_engine
+    if _ocr_engine is None:
+        from rapidocr_onnxruntime import RapidOCR  # bundles its own models; no downloads
+
+        _ocr_engine = RapidOCR()
+    return _ocr_engine
+
+
+def ocr_pdf_text(path: str) -> str:
+    """OCR a scanned PDF into plain text. Renders each page, drops the light background
+    so faint watermarks don't swamp the real text, then recognises it. Returns "" if OCR
+    isn't installed or fails — callers treat that as 'still unreadable'."""
+    try:
+        import io
+
+        import fitz  # PyMuPDF
+        from PIL import Image
+
+        engine = _get_ocr()
+    except Exception:
+        return ""
+    try:
+        pages_text = []
+        doc = fitz.open(path)
+        for page in doc:
+            pix = page.get_pixmap(dpi=_OCR_DPI)
+            img = Image.open(io.BytesIO(pix.tobytes("png"))).convert("L")
+            img = img.point(lambda x: 255 if x > _OCR_THRESHOLD else 0)
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            result, _ = engine(buf.getvalue())
+            pages_text.append("\n".join(line[1] for line in (result or [])))
+        doc.close()
+        return "\n".join(pages_text).strip()
+    except Exception:
+        return ""
 
 
 # --------------------------------------------------------------------------- #
@@ -104,10 +205,21 @@ def _looks_like_refusal(answer: str) -> bool:
 # the cognee lifecycle
 # --------------------------------------------------------------------------- #
 async def remember(paths) -> dict:
-    """Ingest files/folders/text and build the knowledge graph."""
+    """Ingest files/folders/text and build the knowledge graph. Scanned/image PDFs
+    (no text layer) are OCR'd first so they become searchable memory too; anything OCR
+    still can't read is reported back so the UI can say so instead of failing quietly."""
+    ocr_ok, ocr_fail = [], []
+    for fp in _scanned_pdf_paths(paths):
+        name = os.path.basename(fp)
+        text = ocr_pdf_text(fp)
+        if text:
+            await cognee.add(f"[Document: {name}]\n\n{text}", dataset_name=DATASET)
+            ocr_ok.append(name)
+        else:
+            ocr_fail.append(name)
     await cognee.add(paths, dataset_name=DATASET)
     await cognee.cognify(datasets=[DATASET])
-    return {"ok": True, "dataset": DATASET}
+    return {"ok": True, "dataset": DATASET, "ocr": ocr_ok, "unreadable": ocr_fail}
 
 
 async def refresh(folder: str, prune: bool = True) -> dict:

@@ -1,87 +1,147 @@
-# 🧠 Athena — the analyst whose memory never goes stale
+# Athena
 
-An AI analyst agent with **persistent, cited, self-improving memory** built on the
-open-source [cognee](https://github.com/topoteretes/cognee) memory layer. Point it at a
-folder of *your* sources; it builds a **knowledge graph**, answers questions **with
-citations**, **learns from your feedback**, and **auto-refreshes** when the sources
-change — so it never goes stale and never asks you the same thing twice.
+### The analyst whose memory never goes stale.
 
-> **Not a general chatbot.** Athena reasons only over the documents *you* give it, and
-> every answer traces back to them. If it's not in your sources, Athena says so — it
-> won't guess. This is memory *over your knowledge*, not a model reciting the internet.
+Point Athena at a folder of **your** documents. It builds a knowledge graph, answers
+your questions **with citations**, **learns** when you correct it, **auto-refreshes** when
+the files change, and reads **even scanned PDFs**. It's a working demonstration of the full
+[cognee](https://github.com/topoteretes/cognee) memory lifecycle — built by people who
+**contribute to cognee upstream**.
 
-> Hackathon: *The Hangover Part AI — Where's My Context?* · Track: **Best Use of Open Source Cognee**
+![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![Streamlit](https://img.shields.io/badge/UI-Streamlit-FF4B4B?logo=streamlit&logoColor=white)
+![Cognee](https://img.shields.io/badge/Memory-cognee-8b7cf6)
+![Model](https://img.shields.io/badge/LLM-Gemini%202.5%20Flash-4285F4?logo=googlegemini&logoColor=white)
 
-## The problem
-AI agents are stateless and their knowledge bases rot. You get confident answers you
-can't trust (no sources), the memory drifts out of date as documents change, and nothing
-gets smarter when you correct it.
+> **Not a general chatbot.** Athena reasons only over the sources *you* give it, and every
+> claim traces back to them. Ask something outside your documents and it says *"that's not
+> in my memory"* — it will not guess. This is memory over **your** knowledge, not a model
+> reciting the internet.
 
-## Screenshots
-<!-- Drop real captures into docs/ and uncomment. Order tells the story: graph → cited
-     answer → learns from 👎 → refresh changes the answer. -->
-<!--
-| Knowledge graph | Cited answer |
-|---|---|
-| ![graph](docs/01-graph.png) | ![cited answer](docs/02-cited-answer.png) |
-| Learns from feedback | Refresh — the answer changes |
-| ![teach](docs/03-teach.png) | ![refresh](docs/04-refresh.png) |
--->
-_See the [3-minute demo](#3-minute-demo-script) for the full lifecycle in motion._
+---
 
-## What Athena does — the full cognee lifecycle, on screen
-| Cognee verb | In Athena | Why it matters |
+## Why this wins on substance
+
+Most "AI memory" demos ingest once and answer once. Athena runs the **entire lifecycle on
+screen** — and closes loops the others don't:
+
+| | Typical memory demo | **Athena** |
 |---|---|---|
-| **remember** (`add` + `cognify`) | Ingest a folder → build a knowledge graph | Turns files into connected, queryable memory |
-| **recall** (`recall`, `include_references=True`) | Cited answers scoped to your session | Trust: every claim traces to a source |
-| **improve** (`improve` + feedback) | 👎 + a correction makes the next answer better | The agent learns |
-| **forget** (`forget`) | Drop stale/irrelevant sources | Memory you can prune |
-| **incremental_update** (our upstream feature) | Auto-refresh only changed files; prune removed ones | Memory stays current, hands-free |
-| **visualize_graph** | Live knowledge-graph view | See what it actually knows |
+| Sources for answers | None — trust me | **Cited**, traceable to the file |
+| Out-of-scope question | Hallucinates | **Refuses honestly**, zero phantom citations |
+| You correct it | Ignored | **Learns** (`cognee.improve`) and re-answers |
+| A source file changes | Goes stale | **Auto-refreshes** (only the changed file) |
+| Scanned / image PDF | Unreadable | **OCR'd** and made searchable |
+| Infra | A database server | **Plain files** — nothing to run |
 
-It also uses cognee **sessions** for cross-session memory (close it, reopen it — it
-remembers the whole conversation) and cognee's **hybrid graph + vector** retrieval.
+Every one of those is demoable in three minutes, live.
 
-## Why it's different
-- **Cited by default** — answers show their sources (cognee's `include_references`), and
-  out-of-scope questions get an honest "that's not in my memory" instead of a hallucination.
-- **Self-improving** — a 👎 plus a correction flows into `cognee.improve()`; re-ask and the
-  answer is better. Most memory demos are read-only; Athena closes the loop.
-- **Never stale** — memory auto-refreshes via `cognee.incremental_update` /
-  `cognee hook install`. Edit a source, and the answer changes to match — no re-ingest.
+## The full cognee lifecycle, on screen
+
+Athena is a thin, honest wrapper over cognee — each control maps 1:1 to a cognee memory verb:
+
+| Control | cognee call | What it does |
+|---|---|---|
+| **📥 Remember** | `add` + `cognify` | Ingest a folder → build a knowledge graph |
+| **💬 Recall** | `recall(include_references=True)` | Cited answer, scoped to your session |
+| **👎 Teach** | `add` correction + `improve` | Learn from feedback; the next answer is better |
+| **🔄 Refresh** | `incremental_update` | Re-read only changed files; prune removed ones |
+| **🗑️ Forget** | `forget` | Prune stale sources |
+| **🕸️ Graph** | `visualize_graph` | See exactly what it knows |
+
+It also uses cognee **sessions** for cross-session memory (close it, reopen it — the whole
+conversation is still there) and cognee's **hybrid graph + vector** retrieval.
+
+## What it can do that surprises people
+
+- **Cited by default.** Answers carry their source snippets, parsed out of cognee's evidence
+  block into a clean citation list.
+- **Honest refusals.** Ask about the 2022 World Cup with a corpus of engineering docs and it
+  refuses — *and suppresses the fallback citations*, so a non-answer never looks sourced.
+- **It reads scans.** A scanned transcript that yields **one character** of extractable text
+  (just the page number) becomes fully queryable — Athena renders the pages, thresholds out
+  the watermark, OCRs the text, and answers *"what is his CPI?" → 8.02*, correctly. No
+  Tesseract, no system binaries — pure pip, so it deploys anywhere.
+- **Self-updating.** Edit a source, hit Refresh, and Athena re-asks your last question so you
+  watch the answer change to match the new file.
+
+## How it works
+
+```
+folder ──add──▶ cognee ──cognify──▶  knowledge graph        (Kuzu)
+                                     + vector embeddings    (LanceDB, 3072-dim)
+                                     + metadata / sessions  (SQLite)
+                                            │
+your question ──recall──▶ hybrid graph+vector retrieval ──▶ cited answer
+```
+
+- **`memory.py`** — the cognee lifecycle wrapper (remember / recall / teach / forget /
+  refresh / graph) plus the OCR path for scanned PDFs.
+- **`app.py`** — the Streamlit UI: chat with cited answers, the feedback loop, the live graph.
+  Runs every cognee call on one persistent background event loop so cognee's cached DB engines
+  survive Streamlit reruns, and wraps them so a transient API hiccup never crashes the demo.
+- **Storage** — entirely file-based under `.cognee/` (Kuzu graph + LanceDB vectors + SQLite).
+  No server, no cloud. Rebuilt from your sources on first run.
+- **Model** — Gemini `gemini-2.5-flash` for reasoning, `gemini-embedding-001` (3072-dim) for
+  embeddings, via cognee.
+
+## Quickstart
+
+```bash
+pip install -r requirements.txt          # cognee[gemini] + streamlit + OCR stack
+cp .env.example .env                      # paste your Gemini API key into .env
+streamlit run app.py                      # → http://localhost:8501
+```
+
+Then, in the sidebar: **Remember** the bundled `demo_data/` folder and start asking. No
+infrastructure to stand up — every database is a local file.
+
+## Three-minute demo
+
+1. **Remember** `demo_data/` → open **View knowledge graph** and watch the entities connect.
+2. **Ask** *"How is Alice connected to the Apollo export timeout?"* → a cited answer that spans
+   multiple files.
+3. **Ask** *"Who won the 2022 World Cup?"* → an honest refusal, with **no** citations.
+4. **Correct it** — 👎 a weak answer, type the fix, **Teach Athena**, and it re-answers, better.
+5. **Change a source** — edit a file in `demo_data/`, hit **Refresh**, and the answer updates.
+6. **Drop a scanned PDF** → **OCR** kicks in and it becomes queryable.
+
+See [AUTO_REFRESH.md](AUTO_REFRESH.md) for the never-stale-memory mechanism in detail.
 
 ## Built by cognee contributors
+
 Athena's auto-refresh isn't a wrapper around someone else's API — it's **our own feature,
 shipped upstream and dogfooded here**:
+
 - **[cognee#3797](https://github.com/topoteretes/cognee/pull/3797)** — `incremental_update`
-  + `cognee hook install` (issue **#3669**).
+  and `cognee hook install` (issue **[#3669](https://github.com/topoteretes/cognee/issues/3669)**).
 - **cognee-integrations #200** — post-commit hook timing.
+
+Install the git hook and memory refreshes on every commit, hands-free:
+
+```bash
+cognee hook install --path ./demo_data --dataset-name athena
+```
 
 That's the difference between *using* open-source cognee and *building* it.
 
-## Quickstart
-```bash
-pip install -r requirements.txt          # cognee[gemini] + streamlit
-cp .env.example .env                      # then paste your Gemini API key into .env
-streamlit run app.py
-```
-All databases are file-based (SQLite / Kuzu / LanceDB) — no infra to run.
+## Screenshots
 
-## 3-minute demo script
-1. **Remember** — click *Remember* on `demo_data/` → watch the graph build (*View knowledge graph*).
-2. **Recall (cited)** — ask *"How is Alice connected to the Apollo export timeout?"* → cited answer spanning multiple files.
-3. **Improve** — 👎 + a correction → *Teach Athena* → ask again → better answer.
-4. **Auto-refresh** — edit a file in `demo_data/` (or `git commit`) → *Refresh* → answer now reflects the change.
-5. **Forget** — *Forget everything* → the graph and answers clear.
-6. **Cross-session** — reopen the app → it still remembers the conversation.
+<!-- Capture into docs/ and uncomment. Order tells the story:
+     graph → cited answer → honest refusal → teach → refresh → OCR. -->
+<!--
+| Knowledge graph | Cited answer | Honest refusal |
+|---|---|---|
+| ![graph](docs/01-graph.png) | ![cited](docs/02-cited.png) | ![refusal](docs/03-refusal.png) |
+| Learns from 👎 | Refresh changes the answer | Reads a scanned PDF (OCR) |
+| ![teach](docs/04-teach.png) | ![refresh](docs/05-refresh.png) | ![ocr](docs/06-ocr.png) |
+-->
 
-## Architecture
-- `memory.py` — thin cognee-lifecycle wrapper (remember / recall / teach / forget / refresh / graph).
-- `app.py` — Streamlit UI (chat with cited answers, feedback loop, live graph).
-- `demo_data/` — a sample "company brain" corpus with connected entities.
-- Model: **Gemini** (`gemini-2.5-flash` + `gemini-embedding-001`) via cognee.
+## Tech stack
 
-See [AUTO_REFRESH.md](AUTO_REFRESH.md) for how the never-stale memory works.
+Streamlit · cognee (Kuzu · LanceDB · SQLite) · Gemini 2.5 Flash · PyMuPDF + rapidocr-onnxruntime (OCR)
 
 ## Notes
+
 - `.env` (your API key) is gitignored — never commit it.
+- The `.cognee/` store is rebuilt from your sources; it isn't part of the repo.
