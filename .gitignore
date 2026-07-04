@@ -20,3 +20,6 @@ uploaded_data/
 
 # dev scratch: probes, smoke tests, session notes (anything prefixed with _)
 _*
+
+# video demo props (generated PDFs) — not part of the app
+demo_pdfs/
