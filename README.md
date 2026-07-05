@@ -13,6 +13,8 @@ the files change, and reads **even scanned PDFs**. It's a live demonstration of 
 ![Cognee](https://img.shields.io/badge/Memory-cognee-8b7cf6)
 ![Model](https://img.shields.io/badge/LLM-Gemini%202.5%20Flash-4285F4?logo=googlegemini&logoColor=white)
 
+**🎥 [Watch the 3-minute demo](https://youtu.be/v7G0kN4M9uw)**
+
 > **Not a general chatbot.** Athena reasons only over the sources *you* give it, and every
 > claim traces back to them. Ask something outside your documents and it says *"that's not
 > in my memory"* — it will not guess. This is memory over **your** knowledge, not a model
