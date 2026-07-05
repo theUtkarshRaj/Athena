@@ -65,15 +65,57 @@ conversation is still there) and cognee's **hybrid graph + vector** retrieval.
 - **Self-updating.** Edit a source, hit Refresh, and Athena re-asks your last question so you
   watch the answer change to match the new file.
 
-## How it works
+## Architecture
 
+```mermaid
+flowchart TD
+    subgraph Ingest["📥 Ingest — remember()"]
+        F["Your folder / files"] --> OCR{"Scanned PDF?<br/>(no text layer)"}
+        OCR -->|yes| R["PyMuPDF render<br/>+ RapidOCR"]
+        OCR -->|no| ADD["cognee.add"]
+        R --> ADD
+        ADD --> COG["cognee.cognify<br/>(entity + relation extraction)"]
+    end
+
+    subgraph Store["🗄️ Memory — file-based, no server"]
+        KG[("Kuzu<br/>knowledge graph")]
+        VEC[("LanceDB<br/>vectors · 3072-dim")]
+        META[("SQLite<br/>metadata · sessions")]
+    end
+
+    COG --> KG & VEC & META
+
+    subgraph Query["💬 Ask — recall()"]
+        Q["Your question"] --> RET["Hybrid graph + vector retrieval"]
+        RET --> INMEM{"In memory?"}
+        INMEM -->|yes| CITE["✅ Cited answer<br/>+ source snippets"]
+        INMEM -->|no| REF["🚫 Honest refusal<br/>(no citations)"]
+    end
+
+    KG --> RET
+    VEC --> RET
+
+    subgraph Loops["🔄 Lifecycle loops"]
+        TEACH["👎 Teach → cognee.improve"]
+        REFRESH["🔄 Refresh → incremental_update<br/>(only changed files)"]
+    end
+    TEACH -.re-cognify.-> COG
+    REFRESH -.-> COG
+
+    LLM["🧠 Gemini 2.5 Flash"]
+    COG -.reasoning.-> LLM
+    RET -.reasoning.-> LLM
+
+    classDef store fill:#8b7cf6,color:#fff,stroke:#5b4bc4;
+    classDef model fill:#4285F4,color:#fff,stroke:#2a5db0;
+    class KG,VEC,META store;
+    class LLM model;
 ```
-folder ──add──▶ cognee ──cognify──▶  knowledge graph        (Kuzu)
-                                     + vector embeddings    (LanceDB, 3072-dim)
-                                     + metadata / sessions  (SQLite)
-                                            │
-your question ──recall──▶ hybrid graph+vector retrieval ──▶ cited answer
-```
+
+Every arrow above is a live control in the UI, and every box under **Memory** is just a
+file under `.cognee/` — nothing to stand up, nothing to connect to.
+
+### Components
 
 - **`memory.py`** — the cognee lifecycle wrapper (remember / recall / teach / forget /
   refresh / graph) plus the OCR path for scanned PDFs.
