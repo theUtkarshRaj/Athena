@@ -67,6 +67,11 @@ conversation is still there) and cognee's **hybrid graph + vector** retrieval.
 
 ## Architecture
 
+![Athena architecture — ingest (with OCR branch) → file-based memory (Kuzu · LanceDB · SQLite) → cited-answer / honest-refusal query, with Teach and Refresh lifecycle loops, all reasoning via Gemini 2.5 Flash](docs/architecture.png)
+
+<details>
+<summary>Same diagram as text (Mermaid)</summary>
+
 ```mermaid
 flowchart TD
     subgraph Ingest["📥 Ingest — remember()"]
@@ -111,6 +116,8 @@ flowchart TD
     class KG,VEC,META store;
     class LLM model;
 ```
+
+</details>
 
 Every arrow above is a live control in the UI, and every box under **Memory** is just a
 file under `.cognee/` — nothing to stand up, nothing to connect to.
