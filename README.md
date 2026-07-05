@@ -4,7 +4,7 @@
 
 Point Athena at a folder of **your** documents. It builds a knowledge graph, answers
 your questions **with citations**, **learns** when you correct it, **auto-refreshes** when
-the files change, and reads **even scanned PDFs**. It's a working demonstration of the full
+the files change, and reads **even scanned PDFs**. It's a live demonstration of the full
 [cognee](https://github.com/topoteretes/cognee) memory lifecycle — built by people who
 **contribute to cognee upstream**.
 
