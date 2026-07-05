@@ -162,8 +162,9 @@ See [AUTO_REFRESH.md](AUTO_REFRESH.md) for the never-stale-memory mechanism in d
 Athena's auto-refresh isn't a wrapper around someone else's API — it's **our own feature,
 shipped upstream and dogfooded here**:
 
-- **[cognee#3797](https://github.com/topoteretes/cognee/pull/3797)** — `incremental_update`
-  and `cognee hook install` (issue **[#3669](https://github.com/topoteretes/cognee/issues/3669)**).
+- **PR [cognee#3797](https://github.com/topoteretes/cognee/pull/3797)** — implements
+  `incremental_update` and `cognee hook install`, resolving **assigned issue
+  [#3669](https://github.com/topoteretes/cognee/issues/3669)** (a maintainer-scoped hackathon task).
 - **cognee-integrations #200** — post-commit hook timing.
 
 Install the git hook and memory refreshes on every commit, hands-free:
